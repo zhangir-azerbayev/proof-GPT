@@ -70,6 +70,24 @@ def naturalproofs_proofwiki(testing=False):
     with open(os.path.join(save_dir, "defs.txt"), "w") as f: 
         f.write(defn_string)
 
+def stacks(creds): 
+    save_dir = "stacks"
+    Path(save_dir).mkdir(exist_ok=True)
+
+    resp = requests.get("https://api.github.com/repos/stacks/stacks-project/git/trees/0a847ff5e41b47795be075e130e7810173b35933", 
+            auth=creds)
+    resp_json = json.loads(resp.content.decode('utf-8'))
+    print(json.dumps(resp_json, indent=4))
+    # assumes everything we need is a top level file, which is true for this commit.  
+    blobs = resp_json["tree"]
+    print("DOWNLOADING STACKS")
+    for blob in tqdm(blobs):
+        if blob["type"]=="blob" and blob["path"][-4:] == ".tex" and blob["path"]!="fdl.tex": 
+            decoded_content = _blob_to_text(blob, creds)
+            with open(os.path.join(save_dir, blob["path"]), "wb") as f: 
+                f.write(decoded_content)
+    print("DONE DOWNLOADING STACKS")
+
 
 def cring(creds):
     save_dir = "cring"
@@ -122,7 +140,8 @@ def main():
     creds = ("zhangir-azerbayev", os.environ["GITHUB_TOKEN"])
     #napkin(creds)
     #cring(creds)
-    naturalproofs_proofwiki(testing=False)
+    #naturalproofs_proofwiki(testing=False)
+    stacks(creds)
 
 if __name__=="__main__": 
     main()
