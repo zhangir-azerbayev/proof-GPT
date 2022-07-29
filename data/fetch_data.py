@@ -1,7 +1,9 @@
 import sys
 import os
+
 import json
 import ndjson
+import re 
 
 from pathlib import Path
 from tqdm import tqdm 
@@ -12,6 +14,19 @@ from tqdm import tqdm
 import base64
 
 PROOFWIKI_URL = "https://zenodo.org/record/4902289/files/naturalproofs_proofwiki.json?download=1" 
+
+
+def _delete_files_except_pattern(path, pattern):
+    """
+    recursively
+    """
+    for f in os.listdir(path):
+        f_path = os.path.join(path, f)
+        if os.path.isfile(f_path): 
+            if not re.search(pattern, f):
+                os.remove(f_path)
+        else: 
+            _delete_files_except_pattern(f_path, pattern)
 
 def _download_with_progress_bar(url): 
     response = requests.get(url, stream=True)
@@ -36,9 +51,50 @@ def _blob_to_text(blob, creds):
     resp_json = json.loads(resp.content.decode('utf-8'))
     return base64.b64decode(resp_json["content"])
 
+def trench(): 
+    save_dir = "trench"
+
+def hol(testing=False): 
+    save_dir = "formal/hol" 
+    archive_path = os.path.join(save_dir, "hol.zip")
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+
+    if not testing: 
+        os.system("wget -O " +  archive_path + \
+                " https://github.com/jrh13/hol-light/archive/538c62f.tar.gz")
+
+    os.system("tar -xvf " + archive_path + " -C " + save_dir)
+    os.system("mv " + os.path.join(save_dir, "hol-light-538c62f7cdb0df146752c83f85fa672ae3906b03/* ") + save_dir)
+    os.system("rm -r " + os.path.join(save_dir, "hol-light-538c62f7cdb0df146752c83f85fa672ae3906b03"))
+    os.system("rm " + archive_path)
+
+    # all top level files are metaprogramming, so delete them
+    for f in os.listdir(save_dir):
+        f_path = os.path.join(save_dir, f)
+        if os.path.isfile(f_path): 
+            os.remove(f_path)
+
+    _delete_files_except_pattern(save_dir, r".*\.ml|.*\.doc")
+
+def afp(testing=False): 
+    save_dir = "formal/afp" 
+    archive_path = os.path.join(save_dir, "afp.zip")
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+    
+    if not testing: 
+        os.system("wget -O " +  archive_path + \
+                " https://github.com/isabelle-prover/mirror-afp-2021-1/archive/5a85b23.tar.gz")
+
+    os.system("tar -xvf " + archive_path + " -C " + save_dir)
+    os.system("mv " + os.path.join(save_dir, "mirror-afp-2021-1-5a85b23fb030c472d9a7b2d65a61e428f4eb8233/thys/* ") + save_dir)
+    os.system("rm -r " + os.path.join(save_dir, "mirror-afp-2021-1-5a85b23fb030c472d9a7b2d65a61e428f4eb8233"))
+    os.system("rm " + archive_path)
+
+    _delete_files_except_pattern(save_dir, r".*\.thy|.*\.tex")
+
 def naturalproofs_proofwiki(testing=False):
-    save_dir = "proofwiki"
-    Path(save_dir).mkdir(exist_ok=True)
+    save_dir = "books/proofwiki"
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
     
     if testing: 
         with open("naturalproofs/proofwiki.json") as f: 
@@ -70,9 +126,37 @@ def naturalproofs_proofwiki(testing=False):
     with open(os.path.join(save_dir, "defs.txt"), "w") as f: 
         f.write(defn_string)
 
+def mizar(creds): 
+    save_dir = "formal/mizar"
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+
+    resp = requests.get("https://api.github.com/repos/zhangir-azerbayev/mizar-mirror/git/trees/ce8e9735fd7a4d3488069c48da76bc622aec46ec") 
+    if resp.status_code != 200: 
+        raise AssertionError("Failed to fetch mizar from Github API")
+
+    resp_json = resp.json()
+    tree = resp_json["tree"]
+    
+    print("DOWNLOADING MIZAR")
+    for blob in tqdm(tree): 
+        assert blob["type"] == "blob"
+
+        src = _blob_to_text(blob, creds)
+        # idk why next line is necessary but it is 
+        src = src.decode("utf-8")
+        # mml files have licensing information from lines 2-12
+        src = "\n".join([x 
+            for i, x in enumerate(src.split("\n"))
+            if i not in range(2, 13)])
+
+        save_path = os.path.join(save_dir, blob["path"])
+        with open(save_path, "w") as f: 
+            f.write(src)
+    print("DONE DOWNLOADING MIZAR")
+
 def stacks(creds): 
-    save_dir = "stacks"
-    Path(save_dir).mkdir(exist_ok=True)
+    save_dir = "books/stacks"
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     resp = requests.get("https://api.github.com/repos/stacks/stacks-project/git/trees/0a847ff5e41b47795be075e130e7810173b35933", 
             auth=creds)
@@ -90,8 +174,8 @@ def stacks(creds):
 
 
 def cring(creds):
-    save_dir = "cring"
-    Path(save_dir).mkdir(exist_ok=True)
+    save_dir = "books/cring"
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     resp = requests.get('https://api.github.com/repos/aisejohan/cring/git/trees/2db2618ff70831002aeefbb16885ee42d5198db3',
             auth=creds)
@@ -110,8 +194,8 @@ def cring(creds):
     print("DONE DOWNLOADING CRING")
     
 def napkin(creds): 
-    save_dir = "napkin"
-    Path(save_dir).mkdir(exist_ok=True)
+    save_dir = "books/napkin"
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     resp = requests.get('https://api.github.com/repos/vEnhance/napkin/git/trees/4f56c2ef5d0faf132ee14c15d96fb0f134d58bf0', 
             auth=creds)
@@ -138,10 +222,12 @@ def napkin(creds):
 
 def main(): 
     creds = ("zhangir-azerbayev", os.environ["GITHUB_TOKEN"])
-    #napkin(creds)
-    #cring(creds)
-    #naturalproofs_proofwiki(testing=False)
+    napkin(creds)
+    cring(creds)
+    naturalproofs_proofwiki(testing=False)
     stacks(creds)
+    mizar(creds)
+    afp(testing=False)
 
 if __name__=="__main__": 
     main()
