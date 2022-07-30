@@ -42,7 +42,7 @@ def _delete_files_except_pattern(path, pattern):
         if os.path.isfile(f_path): 
             if not re.search(pattern, f):
                 os.remove(f_path)
-        else: 
+        elif not os.path.islink(f_path):
             _delete_files_except_pattern(f_path, pattern)
 
 def _download_with_progress_bar(url): 
@@ -72,12 +72,36 @@ def coq(creds):
     save_dir = "formal/coq"
     Path(save_dir).mkdir(parents=True, exist_ok=True)
 
-    sources = [{"author": "math-comp", 
-                "repo": "analysis", 
-                "sha": "2ae3b628d12cacdc000c4cd70e6f3cae26ecf429", 
-                "repo_dir": "theories", 
-                "save_path": os.path.join(save_dir, "analysis")}
-                ]
+    sources = [
+                {
+                    "author": "math-comp", 
+                    "repo": "analysis", 
+                    "sha": "2ae3b628d12cacdc000c4cd70e6f3cae26ecf429", 
+                    "repo_dir": "theories", 
+                    "save_path": os.path.join(save_dir, "analysis"), 
+                }, 
+                {
+                    "author": "math-comp",
+                    "repo": "math-comp", 
+                    "sha": "65519a110ffdad7869b2a7cd08a2ddb51161b377", 
+                    "repo_dir": "mathcomp", 
+                    "save_path": os.path.join(save_dir, "math-comp"), 
+                },
+                {
+                    "author": "math-comp",
+                    "repo": "odd-order", 
+                    "sha": "833261a01fd0c62b05ccbadfc0c682e0bc16a5e9", 
+                    "repo_dir": "theories",
+                    "save_path": os.path.join(save_dir, "odd-order"),
+                }, 
+                {
+                    "author": "math-comp",
+                    "repo": "Abel", 
+                    "sha": "61d79aeb0acc1855e22882c484b73645df53b746", 
+                    "repo_dir": "theories", 
+                    "save_path": os.path.join(save_dir, "abel"), 
+                }, 
+            ]
 
     for source in sources: 
         _get_dir_from_repo(**source, creds=creds) 
