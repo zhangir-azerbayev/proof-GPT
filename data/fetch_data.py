@@ -68,6 +68,65 @@ def _blob_to_text(blob, creds):
     resp_json = json.loads(resp.content.decode('utf-8'))
     return base64.b64decode(resp_json["content"])
 
+def lean(creds): 
+    save_dir = "formal/lean"
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+
+    sources = [
+                {
+                    "author": "leanprover-community", 
+                    "repo": "mathlib", 
+                    "sha": "09afe572eb542679f24fbf85d2e1628fc68bfd4b", 
+                    "repo_dir": "src", 
+                    "save_path": os.path.join(save_dir, "mathlib"), 
+                }, 
+                {
+                    "author": "leanprover-community", 
+                    "repo": "lean-liquid", 
+                    "sha": "9701fc4a29514852b599e9732c2409f34153ce2a", 
+                    "repo_dir": "src", 
+                    "save_path": os.path.join(save_dir, "liquid"), 
+                }, 
+                {
+                    "author": "leanprover-community", 
+                    "repo": "sphere-eversion", 
+                    "sha": "e44cf37002196f0889f6090cd51e3ee652de41b8", 
+                    "repo_dir": "src", 
+                    "save_path": os.path.join(save_dir, "sphere-eversion"), 
+                }, 
+                {
+                    "author": "leanprover-community", 
+                    "repo": "lftcm2020", 
+                    "sha": "8b9f7c47b546227b7b6c877315e45eaccc2a0d70", 
+                    "repo_dir": "src", 
+                    "save_path": os.path.join(save_dir, "lftcm"), 
+                }, 
+                {
+                    "author": "leanprover-community",
+                    "repo": "lean-perfectoid-spaces", 
+                    "sha": "95a6520ce578b30a80b4c36e36ab2d559a842690", 
+                    "repo_dir": "src", 
+                    "save_path": os.path.join(save_dir, "perfectoid"), 
+                }, 
+                {
+                    "author": "leanprover-community", 
+                    "repo": "mathzoo", 
+                    "sha": "87e9b492daeb929838706942aaa2437621b34a0e", 
+                    "repo_dir": "src", 
+                    "save_path": os.path.join(save_dir, "mathzoo"), 
+                }, 
+            ]
+
+
+    for source in sources: 
+        _get_dir_from_repo(**source, creds=creds) 
+        _delete_files_except_pattern(source["save_path"], r".*\.lean")
+
+    # we also don't want meta code
+    to_delete = ["tactic", "meta"]
+    os.system("rm -r " + " ".join([os.path.join(save_dir, "mathlib", x) for x in to_delete]))
+
+
 def coq(creds): 
     save_dir = "formal/coq"
     Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -360,7 +419,8 @@ def main():
     #trench()
     #hott(creds)
     #stein(creds)
-    coq(creds)
+    #coq(creds)
+    lean(creds)
 
 if __name__=="__main__": 
     main()
