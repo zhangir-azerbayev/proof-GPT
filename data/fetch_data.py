@@ -52,7 +52,32 @@ def _blob_to_text(blob, creds):
     return base64.b64decode(resp_json["content"])
 
 def trench(): 
-    save_dir = "trench"
+    save_dir = "books/trench"
+    archive_path = os.path.join(save_dir, "trench.zip")
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+
+    print("DOWNLOADING TRENCH")
+    os.system("wget -O " + archive_path + \
+            " \"https://digitalcommons.trinity.edu/cgi/viewcontent.cgi?filename=2&article=1006&context=mono&type=additional\"")
+    print("DONE DOWNLOADING TRENCH")
+
+    os.system("unzip " + archive_path + " -d " + save_dir)
+    to_delete = ["trench.zip", "wtrench.sty", "SETEPS.TEX", "EPS"]
+    os.system("rm -r " + " ".join([os.path.join(save_dir, f) for f in to_delete]))
+
+def setmm(creds):
+    """
+    incomplete
+    """
+    save_dir = "formal/setmm"
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+
+    resp = _download_with_progress_bar('https://api.github.com/repos/metamath/set.mm/git/blobs/6ccd5acc803808bfc18e8513441a578a301caad5')
+    resp_decoded = json.loads(resp.decode('utf-8'))
+    src_encoded = base64.b64decode(resp_decoded["content"])
+    src = src_encoded.decode('ascii')
+    print(src[0:100000])
+
 
 def hol(testing=False): 
     save_dir = "formal/hol" 
@@ -154,6 +179,39 @@ def mizar(creds):
             f.write(src)
     print("DONE DOWNLOADING MIZAR")
 
+
+def hott(creds): 
+    save_dir = "books/hott"
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+
+    resp = requests.get("https://api.github.com/repos/HoTT/book/git/trees/781565e93979f926001a353bf4ee1284ffa4fcb0", auth=creds)
+    if resp.status_code != 200:
+        raise AssertionError("Failed to fetch HoTT book from Github API")
+
+    resp_json = resp.json()
+    tree = resp_json["tree"]
+    blobs = [blob for blob in tree if blob["type"] == "blob"]
+
+    banned = ["back.tex", 
+              "bmpsize-hack.tex", 
+              "main.tex",]
+
+    banned_rgx = r"opt|cover|front|hott"
+    
+    print("DOWNLOADING HOTT BOOK")
+    for blob in tqdm(blobs): 
+        if blob["path"][-4:] == ".tex" and \
+                blob["path"] not in banned \
+                and not re.match(banned_rgx, blob["path"]):
+            src_enc = _blob_to_text(blob, creds)
+            src = src_enc.decode("utf-8")
+            
+            save_path = os.path.join(save_dir, blob["path"])
+            with open(save_path, "w") as f:
+                f.write(src)
+
+    print("DONE DOWNLOADING HOTT BOOK")
+
 def stacks(creds): 
     save_dir = "books/stacks"
     Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -222,12 +280,15 @@ def napkin(creds):
 
 def main(): 
     creds = ("zhangir-azerbayev", os.environ["GITHUB_TOKEN"])
-    napkin(creds)
-    cring(creds)
-    naturalproofs_proofwiki(testing=False)
-    stacks(creds)
-    mizar(creds)
-    afp(testing=False)
+    #napkin(creds)
+    #cring(creds)
+    #naturalproofs_proofwiki(testing=False)
+    #stacks(creds)
+    #mizar(creds)
+    #afp(testing=False)
+    #setmm(creds)
+    #trench()
+    hott(creds)
 
 if __name__=="__main__": 
     main()
