@@ -78,6 +78,20 @@ def setmm(creds):
     src = src_encoded.decode('ascii')
     print(src[0:100000])
 
+def stein(creds): 
+    save_dir = "books/stein"
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+    
+    print("DOWNLOADING STEIN")
+    resp = _download_with_progress_bar("https://api.github.com/repos/williamstein/ent/git/blobs/a70578277b1222c94dc395f7d5baaf9862afd166")
+    print("DONE DOWNLOADING STEIN")
+
+    resp_json = json.loads(resp.decode('utf-8'))
+    src_encoded = base64.b64decode(resp_json["content"])
+    src = src_encoded.decode('utf-8')
+
+    with open(os.path.join(save_dir, "stein.tex"), "w") as f: 
+        f.write(src)
 
 def hol(testing=False): 
     save_dir = "formal/hol" 
@@ -288,7 +302,8 @@ def main():
     #afp(testing=False)
     #setmm(creds)
     #trench()
-    hott(creds)
+    #hott(creds)
+    stein(creds)
 
 if __name__=="__main__": 
     main()
