@@ -15,6 +15,23 @@ import base64
 
 PROOFWIKI_URL = "https://zenodo.org/record/4902289/files/naturalproofs_proofwiki.json?download=1" 
 
+def _get_dir_from_repo(author, repo, sha, repo_dir, save_path, creds):
+    """
+    This super unelegant solution is to get around the github api rate limit
+
+    repo_dir must be top-level in the repo. 
+    """
+    Path(save_path).mkdir(parents=True, exist_ok=True) 
+    archive_path = os.path.join(save_path, "archive.tar.gz") 
+    tarball_url = "https://github.com/" + author + "/" + repo + "/archive/" + sha + ".tar.gz"
+
+    os.system("wget -O " +  archive_path + " " + tarball_url)
+    os.system("tar -xzf " + archive_path + " -C " + save_path)
+
+    export_name = repo + "-" + sha 
+
+    os.system("cp -r " + os.path.join(save_path, export_name, repo_dir, "*") + " " + save_path)
+    os.system("rm -r " + os.path.join(save_path, export_name) + " " + archive_path)
 
 def _delete_files_except_pattern(path, pattern):
     """
@@ -50,6 +67,21 @@ def _blob_to_text(blob, creds):
 
     resp_json = json.loads(resp.content.decode('utf-8'))
     return base64.b64decode(resp_json["content"])
+
+def coq(creds): 
+    save_dir = "formal/coq"
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+
+    sources = [{"author": "math-comp", 
+                "repo": "analysis", 
+                "sha": "2ae3b628d12cacdc000c4cd70e6f3cae26ecf429", 
+                "repo_dir": "theories", 
+                "save_path": os.path.join(save_dir, "analysis")}
+                ]
+
+    for source in sources: 
+        _get_dir_from_repo(**source, creds=creds) 
+        _delete_files_except_pattern(source["save_path"], r".*\.v")
 
 def trench(): 
     save_dir = "books/trench"
@@ -303,7 +335,8 @@ def main():
     #setmm(creds)
     #trench()
     #hott(creds)
-    stein(creds)
+    #stein(creds)
+    coq(creds)
 
 if __name__=="__main__": 
     main()
