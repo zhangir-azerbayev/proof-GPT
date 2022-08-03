@@ -415,12 +415,13 @@ def main():
     #stacks(creds)
     #mizar(creds)
     #afp(testing=False)
-    setmm(creds)
+    #setmm(creds)
     #trench()
     #hott(creds)
     #stein(creds)
     #coq(creds)
     #lean(creds)
+    hol()
 
 if __name__=="__main__": 
     main()
