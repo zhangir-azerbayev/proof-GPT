@@ -12,6 +12,27 @@ import shutil
 
 import arxiv 
 
+def clean_tex_file(path): 
+    with open(path) as f: 
+        try: 
+            src = f.read()
+        except UnicodeDecodeError: 
+            print(f"UnicodeDecodeError at {path}. Deleting this file.")
+            print("\nThis issue should only occur with a handful of quite old files. Continuing...")
+            os.remove(path)
+            return 
+
+    end = re.search(r"\\end\{document\}", src)
+    if end: 
+        src = src[:end.span()[1]]
+
+    bib = re.search(r"\\begin\{thebibliography\}", src)
+    if bib:
+        src = src[:bib.span()[0]]
+
+    with open(path, "w") as f: 
+        f.write(src)
+
 def process_tarball_old_scheme(tarball_name, save_dir): 
     tarball_path = os.path.join(save_dir, tarball_name)
     os.system("tar -xf " + tarball_path + " -C " + save_dir)
@@ -45,6 +66,9 @@ def process_tarball_old_scheme(tarball_name, save_dir):
                 os.remove(path)
             else: 
                 shutil.rmtree(path)
+        else: 
+            clean_tex_file(path)
+    os.remove(tarball_path)
 
 def process_tarball(tarball_name, save_dir): 
     tarball_path = os.path.join(save_dir, tarball_name)
@@ -94,6 +118,10 @@ def process_tarball(tarball_name, save_dir):
                 os.remove(path)
             else: 
                 shutil.rmtree(path)
+        else: 
+            clean_tex_file(path)
+
+    os.remove(tarball_path)
 
 def main(): 
     """
@@ -117,18 +145,20 @@ def main():
             fle_field = child[1] # the index of filename
             shards_to_get.append(fle_field.text)
             yymms.append(child[9].text)
+    
     # delete this line later
-    print(yymms)
-    sys.exit()
     shards_to_get = [shards_to_get[0], shards_to_get[1000]]
     
     format_cutoff = datetime.datetime(2007, 3, 1)
-    for shard, yymm in tqdm(zip(shards_to_get, yymms)): 
+    for shard, yymm in tqdm(zip(shards_to_get, yymms), total=len(yymms)): 
         print("SHARD: ", shard)
         os.system(f"s3cmd get s3://arxiv/" + shard + \
                 " --requester-pays " + save_dir) 
         tarball_name=shard[shard.rindex("/")+1:]
-        if datetime.datetime(yymm[:2], yymm[2:], 1)<=format_cutoff: 
+        
+        # nb this code will stop working in 2051 ;) 
+        year = int("19" + yymm[:2]) if int(yymm[:2])>50 else int("20"+yymm[:2])
+        if datetime.datetime(year, int(yymm[2:]), 1)<=format_cutoff: 
             process_tarball_old_scheme(tarball_name, save_dir)
         else: 
             process_tarball(tarball_name, save_dir)
