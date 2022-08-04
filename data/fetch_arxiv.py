@@ -7,10 +7,19 @@ import tarfile
 import xml.etree.ElementTree as ET 
 from tqdm import tqdm
 import re 
+from itertools import chain
 
 import shutil
 
 import arxiv 
+
+def batch_loader(seq, size):
+    """
+    Iterator that takes in a list `seq` and returns
+    chunks of size `size` 
+    """
+    return [seq[pos:pos + size] for pos in range(0, len(seq), size)]
+
 
 def _delete_files_except_pattern(path, pattern, transform = lambda x: None):
     """
@@ -27,14 +36,19 @@ def _delete_files_except_pattern(path, pattern, transform = lambda x: None):
             _delete_files_except_pattern(f_path, pattern, transform=transform)
 
 def clean_tex_file(path): 
-    with open(path) as f: 
+    with open(path, encoding="utf-8") as f: 
         try: 
             src = f.read()
         except UnicodeDecodeError: 
-            print(f"UnicodeDecodeError at {path}. Deleting this file.")
-            print("This issue should only occur with a handful of quite old files. Continuing...\n")
-            os.remove(path)
-            return 
+            print(f"UnicodeDecodeError at {path} with utf-8. Try utf-16")
+            try: 
+                with open(path, encoding="utf-16-le") as fle: 
+                    src = fle.read()
+                    print("utf-16 successful")
+            except UnicodeDecodeError: 
+                print("utf-16 decoding failed. Deleting this file.")
+                print("This issue should only occur with a handful of quite old files. Continuing...\n")
+                return 
 
     end = re.search(r"\\end\{document\}", src)
     if end: 
@@ -44,7 +58,7 @@ def clean_tex_file(path):
     if bib:
         src = src[:bib.span()[0]]
 
-    with open(path, "w") as f: 
+    with open(path, "w", encoding="utf-8") as f: 
         f.write(src)
 
 def process_tarball_old_scheme(tarball_name, save_dir): 
@@ -76,24 +90,11 @@ def process_tarball_old_scheme(tarball_name, save_dir):
                 os.remove(zipped_path)
 
     _delete_files_except_pattern(subpath, r".*\.tex", transform=clean_tex_file)
-    """
-    listdir = os.listdir(subpath)
-    for fle in listdir: 
-        path = os.path.join(subpath, fle)
-        if not re.match(r".*\.tex", fle): 
-            if os.path.isfile(path): 
-                os.remove(path)
-            else: 
-                shutil.rmtree(path)
-        else: 
-            clean_tex_file(path)
-    """
     #os.remove(tarball_path)
 
 def process_tarball(tarball_name, save_dir): 
     tarball_path = os.path.join(save_dir, tarball_name)
     untar_cmd = "tar -xvf " + tarball_path + " -C " + save_dir
-    print("UNTAR CMD: ", untar_cmd)
     os.system(untar_cmd)
     
     last_ = tarball_name.rfind("_")
@@ -105,14 +106,22 @@ def process_tarball(tarball_name, save_dir):
 
     ids = [x[:-3] for x in listdir if x[-3:]==".gz"]
 
-    search = arxiv.Search(
-            id_list = ids, 
-            max_results=float('inf')
-    )
+    print("IDS TO FILTER:", len(ids))
+    
+    # the arXiv metadata API can only handle a few hundred requests
+    # at a time, and this is a little hack to get around it 
+    id_chunks = batch_loader(ids, 511)
+    chunk_iterators = []
+    for chunk in id_chunks: 
+        chunk_iterators.append(arxiv.Search(
+                id_list = chunk, 
+                max_results=float('inf')
+        ).results())
+
 
     math_ids = []
     print("filtering for math articles")
-    for result in tqdm(search.results()): 
+    for result in tqdm(chain(*chunk_iterators), total=len(ids)): 
         if result.primary_category[:4]=="math": 
             id_beg = result.entry_id.rfind("/")+1
             id_end = result.entry_id.rfind("v")
@@ -134,20 +143,7 @@ def process_tarball(tarball_name, save_dir):
                 unzipped_path = os.path.join(subpath, eyed)
                 os.rename(unzipped_path, unzipped_path + ".tex")
     
-    #_delete_files_except_pattern(subpath, r".*\.tex", transform=clean_tex_file)
-    """
-    listdir = os.listdir(subpath)
-    for fle in listdir: 
-        path = os.path.join(subpath, fle)
-        if not re.match(r".*\.tex", fle): 
-            if os.path.isfile(path): 
-                os.remove(path)
-            else: 
-                shutil.rmtree(path)
-        else: 
-            clean_tex_file(path)
-    """
-
+    _delete_files_except_pattern(subpath, r".*\.tex", transform=clean_tex_file)
     #os.remove(tarball_path)
 
 def main(): 
@@ -165,33 +161,27 @@ def main():
     tree = ET.parse(manifest_path)
     root = tree.getroot()
     
-    shards_to_get = []
-    yymms = []
+    shards_and_dates = []
     for child in root: 
         if child.tag == "file":
-            fle_field = child[1] # the index of filename
-            shards_to_get.append(fle_field.text)
-            yymms.append(child[9].text)
-    
-    # delete this line later
-    shards_to_get = [shards_to_get[2000]]
-    
+            shard = child[1].text # the index of filename
+            yymm = child[9].text # the index of yymm
+            shards_and_dates.append((shard, yymm))
+
+    shards_and_dates = [shards_and_dates[0], shards_and_dates[250], shards_and_dates[5000]]
+     
     format_cutoff = datetime.datetime(2007, 3, 1)
-    for shard, yymm in tqdm(zip(shards_to_get, yymms), total=len(yymms)): 
+    for shard, yymm in tqdm(shards_and_dates): 
         print("SHARD: ", shard)
         os.system(f"s3cmd get s3://arxiv/" + shard + \
                 " --requester-pays " + save_dir) 
         tarball_name=shard[shard.rindex("/")+1:]
         
         # nb this code will stop working in 2051 ;) 
-        print(yymm)
         year = int("19" + yymm[:2]) if int(yymm[:2])>50 else int("20"+yymm[:2])
-        print("YEAR: ", year)
         if datetime.datetime(year, int(yymm[2:]), 1)<=format_cutoff: 
-            print("GOT TO IF")
             process_tarball_old_scheme(tarball_name, save_dir)
         else: 
-            print("GOT TO ELSE")
             process_tarball(tarball_name, save_dir) 
 
     #os.remove(manifest_path)
