@@ -39,16 +39,27 @@ def clean_tex_file(path):
     with open(path, encoding="utf-8") as f: 
         try: 
             src = f.read()
-        except UnicodeDecodeError: 
-            print(f"UnicodeDecodeError at {path} with utf-8. Try utf-16")
+        except (UnicodeDecodeError, UnicodeError): 
+            print(f"Decoding error at {path} with utf-8. Trying latin-1")
             try: 
-                with open(path, encoding="utf-16-le") as fle: 
+                with open(path, encoding="latin-1") as fle: 
                     src = fle.read()
-                    print("utf-16 successful")
-            except UnicodeDecodeError: 
-                print("utf-16 decoding failed. Deleting this file.")
-                print("This issue should only occur with a handful of quite old files. Continuing...\n")
-                return 
+                    print("latin-1 successful\n")
+            except (UnicodeDecodeError, UnicodeError): 
+                print(f"Decoding error at {path} with latin-1. Trying utf-16")
+                try: 
+                    with open(path, encoding="utf-16") as fl: 
+                        src = fl.read()
+                        print("utf-16 successful\n")
+                except (UnicodeDecodeError, UnicodeError): 
+                    print(f"Decoding error at {path} with utf-16. Trying utf-32")
+                    try: 
+                        with open(path, encoding="utf-32") as f: 
+                            src = f.read()
+                    except (UnicodeDecodeError, UnicodeError): 
+                        print(f"Decoding error at {path} with utf-32. Deleting this file")
+                        print("This issue should only occur with a handful of quite old files. Continuing...\n")
+                        return 
 
     end = re.search(r"\\end\{document\}", src)
     if end: 
@@ -90,11 +101,11 @@ def process_tarball_old_scheme(tarball_name, save_dir):
                 os.remove(zipped_path)
 
     _delete_files_except_pattern(subpath, r".*\.tex", transform=clean_tex_file)
-    #os.remove(tarball_path)
+    os.remove(tarball_path)
 
 def process_tarball(tarball_name, save_dir): 
     tarball_path = os.path.join(save_dir, tarball_name)
-    untar_cmd = "tar -xvf " + tarball_path + " -C " + save_dir
+    untar_cmd = "tar -xf " + tarball_path + " -C " + save_dir
     os.system(untar_cmd)
     
     last_ = tarball_name.rfind("_")
@@ -144,7 +155,7 @@ def process_tarball(tarball_name, save_dir):
                 os.rename(unzipped_path, unzipped_path + ".tex")
     
     _delete_files_except_pattern(subpath, r".*\.tex", transform=clean_tex_file)
-    #os.remove(tarball_path)
+    os.remove(tarball_path)
 
 def main(): 
     """
@@ -184,7 +195,7 @@ def main():
         else: 
             process_tarball(tarball_name, save_dir) 
 
-    #os.remove(manifest_path)
+    os.remove(manifest_path)
 
 if __name__=="__main__": 
     main()
