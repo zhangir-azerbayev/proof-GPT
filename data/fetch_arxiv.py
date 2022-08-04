@@ -12,13 +12,27 @@ import shutil
 
 import arxiv 
 
+def _delete_files_except_pattern(path, pattern, transform = lambda x: None):
+    """
+    recursively
+    """
+    for f in os.listdir(path):
+        f_path = os.path.join(path, f)
+        if os.path.isfile(f_path): 
+            if not re.search(pattern, f):
+                os.remove(f_path)
+            else: 
+                transform(f_path)
+        elif not os.path.islink(f_path):
+            _delete_files_except_pattern(f_path, pattern, transform=transform)
+
 def clean_tex_file(path): 
     with open(path) as f: 
         try: 
             src = f.read()
         except UnicodeDecodeError: 
             print(f"UnicodeDecodeError at {path}. Deleting this file.")
-            print("\nThis issue should only occur with a handful of quite old files. Continuing...")
+            print("This issue should only occur with a handful of quite old files. Continuing...\n")
             os.remove(path)
             return 
 
@@ -26,7 +40,7 @@ def clean_tex_file(path):
     if end: 
         src = src[:end.span()[1]]
 
-    bib = re.search(r"\\begin\{thebibliography\}", src)
+    bib = re.search(r"\\Refs|\\begin\{thebibliography\}", src)
     if bib:
         src = src[:bib.span()[0]]
 
@@ -48,16 +62,21 @@ def process_tarball_old_scheme(tarball_name, save_dir):
         if zipped_name[-len(".gz"):]==".gz": 
             zipped_path = os.path.join(subpath, zipped_name)
             if re.match(r"math", zipped_name): 
+                eyed = zipped_name[:-len(".gz")]
                 if tarfile.is_tarfile(zipped_path): 
-                    os.system("tar -xzf " + zipped_path + " -C " + subpath)
+                    article_dir = os.path.join(subpath, eyed)
+                    Path(article_dir).mkdir()
+                    os.system("tar -xzf " + zipped_path + " -C " + article_dir)
                     os.remove(zipped_path)
                 else: 
                     os.system("gzip -d " + zipped_path)
-                    unzipped_path = os.path.join(subpath, zipped_name[:-len(".gz")])
+                    unzipped_path = os.path.join(subpath, eyed)
                     os.rename(unzipped_path, unzipped_path + ".tex")
             else: 
                 os.remove(zipped_path)
 
+    _delete_files_except_pattern(subpath, r".*\.tex", transform=clean_tex_file)
+    """
     listdir = os.listdir(subpath)
     for fle in listdir: 
         path = os.path.join(subpath, fle)
@@ -68,11 +87,14 @@ def process_tarball_old_scheme(tarball_name, save_dir):
                 shutil.rmtree(path)
         else: 
             clean_tex_file(path)
-    os.remove(tarball_path)
+    """
+    #os.remove(tarball_path)
 
 def process_tarball(tarball_name, save_dir): 
     tarball_path = os.path.join(save_dir, tarball_name)
-    os.system("tar -xf " + tarball_path + " -C " + save_dir)
+    untar_cmd = "tar -xvf " + tarball_path + " -C " + save_dir
+    print("UNTAR CMD: ", untar_cmd)
+    os.system(untar_cmd)
     
     last_ = tarball_name.rfind("_")
     second_last_ = tarball_name.rfind("_", 0, last_)
@@ -103,13 +125,17 @@ def process_tarball(tarball_name, save_dir):
             zipped_path = os.path.join(subpath, eyed + ".gz")
 
             if tarfile.is_tarfile(zipped_path): 
-                os.system("tar -xzf " + zipped_path + " -C " + subpath)
+                article_dir = os.path.join(subpath, eyed)
+                Path(article_dir).mkdir()
+                os.system("tar -xzf " + zipped_path + " -C " + article_dir)
                 os.remove(zipped_path)
             else: 
                 os.system("gzip -d " + zipped_path)
                 unzipped_path = os.path.join(subpath, eyed)
                 os.rename(unzipped_path, unzipped_path + ".tex")
-
+    
+    #_delete_files_except_pattern(subpath, r".*\.tex", transform=clean_tex_file)
+    """
     listdir = os.listdir(subpath)
     for fle in listdir: 
         path = os.path.join(subpath, fle)
@@ -120,8 +146,9 @@ def process_tarball(tarball_name, save_dir):
                 shutil.rmtree(path)
         else: 
             clean_tex_file(path)
+    """
 
-    os.remove(tarball_path)
+    #os.remove(tarball_path)
 
 def main(): 
     """
@@ -147,7 +174,7 @@ def main():
             yymms.append(child[9].text)
     
     # delete this line later
-    shards_to_get = [shards_to_get[0], shards_to_get[1000]]
+    shards_to_get = [shards_to_get[2000]]
     
     format_cutoff = datetime.datetime(2007, 3, 1)
     for shard, yymm in tqdm(zip(shards_to_get, yymms), total=len(yymms)): 
@@ -157,11 +184,17 @@ def main():
         tarball_name=shard[shard.rindex("/")+1:]
         
         # nb this code will stop working in 2051 ;) 
+        print(yymm)
         year = int("19" + yymm[:2]) if int(yymm[:2])>50 else int("20"+yymm[:2])
+        print("YEAR: ", year)
         if datetime.datetime(year, int(yymm[2:]), 1)<=format_cutoff: 
+            print("GOT TO IF")
             process_tarball_old_scheme(tarball_name, save_dir)
         else: 
-            process_tarball(tarball_name, save_dir)
-    
+            print("GOT TO ELSE")
+            process_tarball(tarball_name, save_dir) 
+
+    #os.remove(manifest_path)
+
 if __name__=="__main__": 
     main()
