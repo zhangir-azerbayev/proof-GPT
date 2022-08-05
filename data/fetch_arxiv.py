@@ -40,24 +40,24 @@ def clean_tex_file(path):
         try: 
             src = f.read()
         except (UnicodeDecodeError, UnicodeError): 
-            print(f"Decoding error at {path} with utf-8. Trying latin-1")
+            #print(f"Decoding error at {path} with utf-8. Trying latin-1")
             try: 
                 with open(path, encoding="latin-1") as fle: 
                     src = fle.read()
-                    print("latin-1 successful\n")
+                    #print("latin-1 successful\n")
             except (UnicodeDecodeError, UnicodeError): 
-                print(f"Decoding error at {path} with latin-1. Trying utf-16")
+                #print(f"Decoding error at {path} with latin-1. Trying utf-16")
                 try: 
                     with open(path, encoding="utf-16") as fl: 
                         src = fl.read()
-                        print("utf-16 successful\n")
+                        #print("utf-16 successful\n")
                 except (UnicodeDecodeError, UnicodeError): 
-                    print(f"Decoding error at {path} with utf-16. Trying utf-32")
+                    #print(f"Decoding error at {path} with utf-16. Trying utf-32")
                     try: 
                         with open(path, encoding="utf-32") as f: 
                             src = f.read()
                     except (UnicodeDecodeError, UnicodeError): 
-                        print(f"Decoding error at {path} with utf-32. Deleting this file")
+                        print(f"Decoding error at {path} with all of utf-8, 16, 32 and latin-1. Deleting this file")
                         print("This issue should only occur with a handful of quite old files. Continuing...\n")
                         return 
 
@@ -178,9 +178,7 @@ def main():
             shard = child[1].text # the index of filename
             yymm = child[9].text # the index of yymm
             shards_and_dates.append((shard, yymm))
-
-    shards_and_dates = [shards_and_dates[0], shards_and_dates[250], shards_and_dates[5000]]
-     
+ 
     format_cutoff = datetime.datetime(2007, 3, 1)
     for shard, yymm in tqdm(shards_and_dates): 
         print("SHARD: ", shard)
