@@ -15,6 +15,8 @@ import shutil
 
 import arxiv 
 
+from utils import Loader as Loader
+
 def batch_loader(seq, size):
     """
     Iterator that takes in a list `seq` and returns
@@ -53,12 +55,12 @@ def _download_with_progress_bar(url):
     return to_return
 
 def get_math_ids(resumption_token="init"): 
-    print(f"fetching metadata shard {resumption_token}...")
-    if resumption_token=="init": 
-        resp = requests.get("https://export.arxiv.org/oai2?verb=ListIdentifiers&set=math&metadataPrefix=oai_dc")
-    else: 
-        time.sleep(5)
-        resp = requests.get(f"https://export.arxiv.org/oai2?verb=ListIdentifiers&resumptionToken={resumption_token}")
+    with Loader(f"fetching metadata shard {resumption_token}..."):
+        if resumption_token=="init": 
+            resp = requests.get("https://export.arxiv.org/oai2?verb=ListIdentifiers&set=math&metadataPrefix=oai_dc")
+        else: 
+            time.sleep(5)
+            resp = requests.get(f"https://export.arxiv.org/oai2?verb=ListIdentifiers&resumptionToken={resumption_token}")
      
     root = ET.fromstring(resp.content.decode("utf-8"))
     articles = root[2]
@@ -73,7 +75,6 @@ def get_math_ids(resumption_token="init"):
 
         db_id = article[0].text
         eyed = db_id[db_id.rindex(":")+1:]
-        print(eyed)
         math_ids[eyed] = True 
 
 def clean_tex_file(path): 
