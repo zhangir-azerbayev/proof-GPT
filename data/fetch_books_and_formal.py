@@ -181,17 +181,38 @@ def trench():
     os.system("rm -r " + " ".join([os.path.join(save_dir, f) for f in to_delete]))
 
 def setmm(creds):
-    """
-    incomplete
-    """
     save_dir = "formal/setmm"
     Path(save_dir).mkdir(parents=True, exist_ok=True)
 
-    resp = _download_with_progress_bar('https://api.github.com/repos/metamath/set.mm/git/blobs/6ccd5acc803808bfc18e8513441a578a301caad5')
-    resp_decoded = json.loads(resp.decode('utf-8'))
-    src_encoded = base64.b64decode(resp_decoded["content"])
-    src = src_encoded.decode('ascii')
-    print(src[0:100000])
+    headers = {
+        'Accept': 'application/vnd.git-lfs+json',
+    }
+
+    json_data = {
+        'operation': 'download',
+        'transfer': [
+            'basic',
+        ],
+        'objects': [
+            {
+                'oid': '67c22d0943748c43f7353fe74990e29e1d069ab709be80d081c5c64c2b54086f',
+                'size': 190985933,
+            },
+        ],
+    }
+
+    response = requests.post('https://github.com/zhangir-azerbayev/mm-extract.git/info/lfs/objects/batch', 
+            headers=headers, json=json_data)
+
+    resp_json = response.json()
+
+    download_url = resp_json["objects"][0]["actions"]["download"]["href"]
+
+    encoded_src = _download_with_progress_bar(download_url)
+    src = encoded_src.decode("utf-8")
+
+    with open(os.path.join(save_dir, "set.mm"), "w") as f: 
+        f.write(src)
 
 def stein(creds): 
     save_dir = "books/stein"
@@ -415,13 +436,13 @@ def main():
     #stacks(creds)
     #mizar(creds)
     #afp(testing=False)
-    #setmm(creds)
+    setmm(creds)
     #trench()
     #hott(creds)
     #stein(creds)
     #coq(creds)
     #lean(creds)
-    hol()
+    #hol()
 
 if __name__=="__main__": 
     main()
