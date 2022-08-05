@@ -8,6 +8,8 @@ import xml.etree.ElementTree as ET
 from tqdm import tqdm
 import re 
 from itertools import chain
+import requests
+import time
 
 import shutil
 
@@ -34,6 +36,45 @@ def _delete_files_except_pattern(path, pattern, transform = lambda x: None):
                 transform(f_path)
         elif not os.path.islink(f_path):
             _delete_files_except_pattern(f_path, pattern, transform=transform)
+
+def _download_with_progress_bar(url):
+    response = requests.get(url, stream=True)
+    total_size_in_bytes = int(response.headers.get("content-length", 0))
+    block_size = 1024  # 1 Kibibyte
+    progress_bar = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
+    to_return = bytearray()
+    for data in response.iter_content(block_size):
+        progress_bar.update(len(data))
+        to_return += data
+    progress_bar.close()
+    if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
+        raise AssertionError("ERROR, something went wrong")
+
+    return to_return
+
+def get_math_ids(resumption_token="init"): 
+    print(f"fetching metadata shard {resumption_token}...")
+    if resumption_token=="init": 
+        resp = requests.get("https://export.arxiv.org/oai2?verb=ListIdentifiers&set=math&metadataPrefix=oai_dc")
+    else: 
+        time.sleep(5)
+        resp = requests.get(f"https://export.arxiv.org/oai2?verb=ListIdentifiers&resumptionToken={resumption_token}")
+     
+    root = ET.fromstring(resp.content.decode("utf-8"))
+    articles = root[2]
+
+    math_ids = {}
+    for article in articles: 
+        if article.tag == "{http://www.openarchives.org/OAI/2.0/}resumptionToken": 
+            if article.text: 
+                return math_ids | get_math_ids(resumption_token=article.text)
+            else: 
+                return math_ids
+
+        db_id = article[0].text
+        eyed = db_id[db_id.rindex(":")+1:]
+        print(eyed)
+        math_ids[eyed] = True 
 
 def clean_tex_file(path): 
     with open(path, encoding="utf-8") as f: 
@@ -103,7 +144,7 @@ def process_tarball_old_scheme(tarball_name, save_dir):
     _delete_files_except_pattern(subpath, r".*\.tex", transform=clean_tex_file)
     os.remove(tarball_path)
 
-def process_tarball(tarball_name, save_dir): 
+def process_tarball(tarball_name, save_dir, math_ids): 
     tarball_path = os.path.join(save_dir, tarball_name)
     untar_cmd = "tar -xf " + tarball_path + " -C " + save_dir
     os.system(untar_cmd)
@@ -116,30 +157,7 @@ def process_tarball(tarball_name, save_dir):
     listdir = os.listdir(subpath)
 
     ids = [x[:-3] for x in listdir if x[-3:]==".gz"]
-
-    print("IDS TO FILTER:", len(ids))
-    
-    # the arXiv metadata API can only handle a few hundred requests
-    # at a time, and this is a little hack to get around it 
-    id_chunks = batch_loader(ids, 511)
-    chunk_iterators = []
-    for chunk in id_chunks: 
-        chunk_iterators.append(arxiv.Search(
-                id_list = chunk, 
-                max_results=float('inf')
-        ).results())
-
-
-    math_ids = []
-    print("filtering for math articles")
-    for result in tqdm(chain(*chunk_iterators), total=len(ids)): 
-        if result.primary_category[:4]=="math": 
-            id_beg = result.entry_id.rfind("/")+1
-            id_end = result.entry_id.rfind("v")
-            math_id = result.entry_id[id_beg:id_end]
-            math_ids.append(math_id)
-    
-    "unzipping math papers"
+ 
     for eyed in ids: 
         if eyed in math_ids: 
             zipped_path = os.path.join(subpath, eyed + ".gz")
@@ -163,6 +181,8 @@ def main():
     if arXiv changes their scheme for formatting data in 
     any way
     """
+    math_ids = get_math_ids()
+
     save_dir = "arxiv"
     Path(save_dir).mkdir(exist_ok=True) 
     manifest_path = os.path.join(save_dir, "manifest.xml")
@@ -191,7 +211,7 @@ def main():
         if datetime.datetime(year, int(yymm[2:]), 1)<=format_cutoff: 
             process_tarball_old_scheme(tarball_name, save_dir)
         else: 
-            process_tarball(tarball_name, save_dir) 
+            process_tarball(tarball_name, save_dir, math_ids) 
 
     os.remove(manifest_path)
 
