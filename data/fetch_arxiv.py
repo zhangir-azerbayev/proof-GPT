@@ -15,7 +15,7 @@ import shutil
 
 import arxiv 
 
-from utils import Loader as Loader
+from load_utils import Loader as Loader
 
 def batch_loader(seq, size):
     """
