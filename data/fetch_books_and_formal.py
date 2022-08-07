@@ -252,6 +252,26 @@ def stein(creds):
     with open(os.path.join(save_dir, "stein.tex"), "w") as f:
         f.write(src)
 
+def cam(): 
+    save_dir = "books/cam"
+    archive_path = os.path.join(save_dir, "cam.tar.gz")
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+
+    os.system("wget -O " + archive_path + " https://github.com/dalcde/cam-notes/archive/06b2239.tar.gz")
+
+    os.system ("tar -xf " + archive_path + " -C " + save_dir)
+    export_name = "cam-notes-06b2239b006f14d833cca2434190ebbf9a304bc6/"
+    os.system(
+            "cp -r "
+            + os.path.join(
+                save_dir, export_name, "* ")
+            + save_dir
+    )
+    os.system("rm -r " + os.path.join(save_dir, export_name))
+    os.remove(archive_path)
+    os.remove(os.path.join(save_dir, "header.tex"))
+
+    _delete_files_except_pattern(save_dir, r".*\.tex")
 
 def hol(testing=False):
     save_dir = "formal/hol"
@@ -532,6 +552,7 @@ def main():
     # coq(creds)
     # lean(creds)
     # hol()
+    cam()
 
 
 if __name__ == "__main__":
