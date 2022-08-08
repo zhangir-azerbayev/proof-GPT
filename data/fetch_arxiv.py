@@ -33,10 +33,11 @@ def _delete_files_except_pattern(path, pattern, transform = lambda x: None):
         f_path = os.path.join(path, f)
         if os.path.isfile(f_path): 
             if not re.search(pattern, f):
+                os.chmod(f_path, 0o755)
                 os.remove(f_path)
             else: 
                 transform(f_path)
-        elif not os.path.islink(f_path):
+        elif os.path.isdir(f_path):
             _delete_files_except_pattern(f_path, pattern, transform=transform)
 
 def _download_with_progress_bar(url):
@@ -110,7 +111,8 @@ def clean_tex_file(path):
     bib = re.search(r"\\Refs|\\begin\{thebibliography\}", src)
     if bib:
         src = src[:bib.span()[0]]
-
+    
+    os.chmod(path, 0o755)
     with open(path, "w", encoding="utf-8") as f: 
         f.write(src)
 
@@ -201,7 +203,7 @@ def main():
             shards_and_dates.append((shard, yymm))
  
     format_cutoff = datetime.datetime(2007, 3, 1)
-    for shard, yymm in tqdm(shards_and_dates): 
+    for shard, yymm in tqdm(shards_and_dates[501+539:]): 
         print("SHARD: ", shard)
         os.system(f"s3cmd get s3://arxiv/" + shard + \
                 " --requester-pays " + save_dir) 

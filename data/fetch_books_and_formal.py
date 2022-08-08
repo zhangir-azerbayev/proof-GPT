@@ -50,7 +50,9 @@ def _delete_files_except_pattern(path, pattern):
         if os.path.isfile(f_path):
             if not re.search(pattern, f):
                 os.remove(f_path)
-        elif not os.path.islink(f_path):
+        elif os.path.islink(f_path): 
+            os.remove(f_path)
+        elif os.path.isdir(f_path):
             _delete_files_except_pattern(f_path, pattern)
 
 
@@ -341,7 +343,7 @@ def afp(testing=False):
 
 
 def naturalproofs_proofwiki(testing=False):
-    save_dir = "books/proofwiki"
+    save_dir = "wikis/proofwiki"
     Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     if testing:
@@ -539,16 +541,16 @@ def napkin(creds):
 
 def main():
     creds = ("zhangir-azerbayev", os.environ["GITHUB_TOKEN"])
-    # napkin(creds)
-    # cring(creds)
+    napkin(creds)
+    cring(creds)
     # naturalproofs_proofwiki(testing=False)
-    # stacks(creds)
+    stacks(creds)
     # mizar(creds)
     # afp(testing=False)
-    #setmm(creds)
-    # trench()
-    # hott(creds)
-    # stein(creds)
+    # setmm(creds)
+    trench()
+    hott(creds)
+    stein(creds)
     # coq(creds)
     # lean(creds)
     # hol()
