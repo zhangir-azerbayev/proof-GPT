@@ -46,9 +46,9 @@ def fromXML(cls, element):
         attr_key = f['key'] if (f is not None and f['key'] is not None) else field_key
         v = element.attrib.get(attr_key)
         if v is None:
-            if field.default is not dataclasses._MISSING_TYPE:
+            if field.default is not dataclasses.MISSING:
                 out[field_key] = field.default
-            elif field.default_factory is not dataclasses._MISSING_TYPE:
+            elif field.default_factory is not dataclasses.MISSING:
                 out[field_key] = field.default_factory()  # type: ignore
             elif is_optional(field_type):
                 out[field_key] = None
@@ -144,4 +144,5 @@ def questions():
     return qs
 
 if __name__ == '__main__':
+    qs = questions()
     print(f"There are {len(questions())} questions")
