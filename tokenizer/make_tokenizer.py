@@ -5,6 +5,9 @@ from datasets import load_dataset
 from itertools import islice
 
 from tqdm import tqdm
+import sys
+
+vocab_size = int(sys.argv[1])
 
 tokenizer = AutoTokenizer.from_pretrained("gpt2")
 
@@ -21,9 +24,8 @@ def get_text_iterator():
 
 text_iterator = get_text_iterator()
 
-new_tokenizer = tokenizer.train_new_from_iterator(text_iterator, 35_000)
+new_tokenizer = tokenizer.train_new_from_iterator(text_iterator, vocab_size)
 
-new_tokenizer.save_pretrained("tokenizer_v1")
+new_tokenizer.add_special_tokens({"additional_special_tokens": ["<|pre|>", "<|suf|>", "<|mid|>"]})
 
-
-
+new_tokenizer.save_pretrained(f"tokenizer_{vocab_size}")
